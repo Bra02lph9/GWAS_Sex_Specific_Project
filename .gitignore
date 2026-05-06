@@ -52,3 +52,5 @@ Thumbs.db
 # Temporary files
 *.swp
 *.tmp
+# GWAS raw input (too large)
+CAD_*_fuma_input.tsv
