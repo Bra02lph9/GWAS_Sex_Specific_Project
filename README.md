@@ -114,4 +114,4 @@ Results are saved in:
 
 # Authors
 
-Ilyass Ghouaghou and IBrahim Rmil
+Ilyass Ghouaghou & IBrahim Rmili
