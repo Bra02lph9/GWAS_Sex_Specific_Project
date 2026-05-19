@@ -1,15 +1,8 @@
 import pandas as pd
 
-# =========================
-# LOAD FILES
-# =========================
 
 female_df = pd.read_csv("../GWAS_Sex_Specific_Project/3_tools_results/gprofiler/female_pathways.tsv")
 male_df = pd.read_csv("../GWAS_Sex_Specific_Project/3_tools_results/gprofiler/male_pathways.tsv")
-
-# =========================
-# KEEP IMPORTANT COLUMNS
-# =========================
 
 columns_to_keep = [
     "term_name",
@@ -21,25 +14,14 @@ columns_to_keep = [
 female_df = female_df[columns_to_keep]
 male_df = male_df[columns_to_keep]
 
-# =========================
-# EXTRACT PATHWAY SETS
-# =========================
-
 female_pathways = set(female_df["term_name"])
 male_pathways = set(male_df["term_name"])
-
-# =========================
-# COMPARE PATHWAYS
-# =========================
 
 shared_pathways = female_pathways.intersection(male_pathways)
 
 female_specific = female_pathways - male_pathways
 male_specific = male_pathways - female_pathways
 
-# =========================
-# CREATE OUTPUT DATAFRAMES
-# =========================
 
 shared_df = pd.concat([
     female_df[female_df["term_name"].isin(shared_pathways)],
@@ -53,10 +35,6 @@ female_specific_df = female_df[
 male_specific_df = male_df[
     male_df["term_name"].isin(male_specific)
 ]
-
-# =========================
-# SAVE RESULTS
-# =========================
 
 shared_df.to_csv("shared_pathways.csv", index=False)
 
@@ -72,9 +50,6 @@ male_specific_df.to_csv(
     index=False
 )
 
-# =========================
-# SUMMARY
-# =========================
 
 print("===== PATHWAY COMPARISON =====")
 
