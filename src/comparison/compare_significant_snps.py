@@ -1,13 +1,8 @@
 from pathlib import Path
 import pandas as pd
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-
-FILTERED_DIR = PROJECT_ROOT / "1_data" / "filtered"
-TABLES_DIR = PROJECT_ROOT / "4_results" / "tables"
-
-PHENOTYPE = "CAD"
+from src.utils.cli import parse_phenotype
+from src.utils.config import get_paths, create_output_dirs
 
 
 def load_snps(file_path: Path) -> pd.DataFrame:
@@ -17,13 +12,9 @@ def load_snps(file_path: Path) -> pd.DataFrame:
     df = pd.read_csv(file_path, sep="\t", low_memory=False)
 
     if "SNP" not in df.columns:
-        raise ValueError(f"SNP column missing in {file_path.name}")
+        raise ValueError(f"SNP column missing in: {file_path}")
 
-    df["SNP"] = (
-        df["SNP"]
-        .astype(str)
-        .str.strip()
-    )
+    df["SNP"] = df["SNP"].astype(str).str.strip()
 
     df = df[
         (df["SNP"] != "")
@@ -72,10 +63,12 @@ def save_group(df: pd.DataFrame, snps: set, output_file: Path) -> pd.DataFrame:
 
 
 def main() -> None:
-    TABLES_DIR.mkdir(parents=True, exist_ok=True)
+    phenotype = parse_phenotype()
+    paths = get_paths(phenotype)
+    create_output_dirs(paths)
 
-    male_file = FILTERED_DIR / f"{PHENOTYPE}_male_significant_snps.tsv"
-    female_file = FILTERED_DIR / f"{PHENOTYPE}_female_significant_snps.tsv"
+    male_file = paths["filtered_dir"] / f"{phenotype}_male_significant_snps.tsv"
+    female_file = paths["filtered_dir"] / f"{phenotype}_female_significant_snps.tsv"
 
     male_df = load_snps(male_file)
     female_df = load_snps(female_file)
@@ -85,19 +78,19 @@ def main() -> None:
     shared_df = save_group(
         male_df,
         shared,
-        TABLES_DIR / f"{PHENOTYPE}_shared_snps.tsv"
+        paths["tables_dir"] / f"{phenotype}_shared_snps.tsv",
     )
 
     male_only_df = save_group(
         male_df,
         male_only,
-        TABLES_DIR / f"{PHENOTYPE}_male_only_snps.tsv"
+        paths["tables_dir"] / f"{phenotype}_male_only_snps.tsv",
     )
 
     female_only_df = save_group(
         female_df,
         female_only,
-        TABLES_DIR / f"{PHENOTYPE}_female_only_snps.tsv"
+        paths["tables_dir"] / f"{phenotype}_female_only_snps.tsv",
     )
 
     summary = pd.DataFrame({
@@ -117,18 +110,13 @@ def main() -> None:
         ],
     })
 
-    summary_file = TABLES_DIR / f"{PHENOTYPE}_summary.tsv"
-
-    summary.to_csv(
-        summary_file,
-        sep="\t",
-        index=False
-    )
+    summary_file = paths["tables_dir"] / f"{phenotype}_summary.tsv"
+    summary.to_csv(summary_file, sep="\t", index=False)
 
     print(summary)
     print("-" * 60)
     print(f"Summary saved to: {summary_file}")
-    print("SNP comparison completed successfully.")
+    print(f"SNP comparison completed successfully for: {phenotype}")
 
 
 if __name__ == "__main__":

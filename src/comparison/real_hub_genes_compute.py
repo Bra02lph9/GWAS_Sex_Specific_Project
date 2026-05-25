@@ -2,20 +2,11 @@ from pathlib import Path
 import pandas as pd
 import networkx as nx
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-
-CYTOSCAPE_DIR = PROJECT_ROOT / "3_tools_results" / "cytoscape"
-TABLES_DIR = PROJECT_ROOT / "4_results" / "tables"
-
-TABLES_DIR.mkdir(parents=True, exist_ok=True)
+from src.utils.cli import parse_phenotype
+from src.utils.config import get_paths, create_output_dirs
 
 
-NETWORKS = {
-    "female": CYTOSCAPE_DIR / "female_network_clean.tsv",
-    "male": CYTOSCAPE_DIR / "male_network_clean.tsv",
-    "shared": CYTOSCAPE_DIR / "shared_network_clean.tsv",
-}
+NETWORK_NAMES = ["female", "male", "shared"]
 
 
 def load_network(file_path: Path) -> pd.DataFrame:
@@ -53,50 +44,49 @@ def load_network(file_path: Path) -> pd.DataFrame:
 
 
 def calculate_hub_genes(df: pd.DataFrame) -> pd.DataFrame:
-    G = nx.from_pandas_edgelist(
+    graph = nx.from_pandas_edgelist(
         df,
         source="source",
         target="target",
         edge_attr="combined_score",
-        create_using=nx.Graph()
+        create_using=nx.Graph(),
     )
 
-    degree_count = dict(G.degree())
-    degree_centrality = nx.degree_centrality(G)
-    betweenness = nx.betweenness_centrality(G)
-
-    weighted_degree = dict(G.degree(weight="combined_score"))
+    degree_count = dict(graph.degree())
+    degree_centrality = nx.degree_centrality(graph)
+    betweenness = nx.betweenness_centrality(graph)
+    weighted_degree = dict(graph.degree(weight="combined_score"))
 
     hub_df = pd.DataFrame({
-        "gene": list(G.nodes()),
-        "degree_count": [degree_count[gene] for gene in G.nodes()],
-        "degree_centrality": [degree_centrality[gene] for gene in G.nodes()],
-        "weighted_degree": [weighted_degree[gene] for gene in G.nodes()],
-        "betweenness_centrality": [betweenness[gene] for gene in G.nodes()],
+        "gene": list(graph.nodes()),
+        "degree_count": [degree_count[gene] for gene in graph.nodes()],
+        "degree_centrality": [degree_centrality[gene] for gene in graph.nodes()],
+        "weighted_degree": [weighted_degree[gene] for gene in graph.nodes()],
+        "betweenness_centrality": [betweenness[gene] for gene in graph.nodes()],
     })
 
-    hub_df = hub_df.sort_values(
+    return hub_df.sort_values(
         by=["degree_count", "weighted_degree", "betweenness_centrality"],
-        ascending=False
+        ascending=False,
     )
-
-    return hub_df
 
 
 def main() -> None:
-    for network_name, input_file in NETWORKS.items():
-        print(f"Processing {network_name} network...")
+    phenotype = parse_phenotype()
+    paths = get_paths(phenotype)
+    create_output_dirs(paths)
+
+    for network_name in NETWORK_NAMES:
+        input_file = paths["cytoscape_dir"] / f"{network_name}_network_clean.tsv"
+
+        print(f"Processing {phenotype} {network_name} network...")
 
         df = load_network(input_file)
         hub_df = calculate_hub_genes(df)
 
-        output_file = TABLES_DIR / f"{network_name}_hub_genes.tsv"
+        output_file = paths["tables_dir"] / f"{phenotype}_{network_name}_hub_genes.tsv"
 
-        hub_df.to_csv(
-            output_file,
-            sep="\t",
-            index=False
-        )
+        hub_df.to_csv(output_file, sep="\t", index=False)
 
         print(f"Nodes: {len(hub_df):,}")
         print(f"Edges: {len(df):,}")

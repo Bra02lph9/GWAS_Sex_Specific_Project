@@ -1,15 +1,13 @@
 from pathlib import Path
 import pandas as pd
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-
-RAW_DIR = PROJECT_ROOT / "1_data" / "raw"
-FILTERED_DIR = PROJECT_ROOT / "1_data" / "filtered"
-
-PHENOTYPE = "CAD"
-P_VALUE_THRESHOLD = 5e-8
-CHUNK_SIZE = 500_000
+from src.utils.cli import parse_phenotype
+from src.utils.config import (
+    get_paths,
+    create_output_dirs,
+    GWAS_P_THRESHOLD,
+    CHUNK_SIZE,
+)
 
 
 USEFUL_COLUMNS = [
@@ -60,7 +58,6 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def validate_required_columns(df: pd.DataFrame, file_name: str) -> None:
     required_columns = ["SNP", "p_value"]
-
     missing_columns = [col for col in required_columns if col not in df.columns]
 
     if missing_columns:
@@ -76,57 +73,24 @@ def keep_available_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def clean_chunk(chunk: pd.DataFrame, file_name: str) -> pd.DataFrame:
     chunk = normalize_columns(chunk)
-
     validate_required_columns(chunk, file_name)
-
     chunk = keep_available_columns(chunk)
 
-    chunk["SNP"] = (
-        chunk["SNP"]
-        .astype(str)
-        .str.strip()
-    )
+    chunk["SNP"] = chunk["SNP"].astype(str).str.strip()
+    chunk["p_value"] = pd.to_numeric(chunk["p_value"], errors="coerce")
 
-    chunk["p_value"] = pd.to_numeric(
-        chunk["p_value"],
-        errors="coerce"
-    )
+    numeric_columns = [
+        "chromosome",
+        "position",
+        "beta",
+        "standard_error",
+        "effect_allele_frequency",
+        "sample_size",
+    ]
 
-    if "chromosome" in chunk.columns:
-        chunk["chromosome"] = pd.to_numeric(
-            chunk["chromosome"],
-            errors="coerce"
-        )
-
-    if "position" in chunk.columns:
-        chunk["position"] = pd.to_numeric(
-            chunk["position"],
-            errors="coerce"
-        )
-
-    if "beta" in chunk.columns:
-        chunk["beta"] = pd.to_numeric(
-            chunk["beta"],
-            errors="coerce"
-        )
-
-    if "standard_error" in chunk.columns:
-        chunk["standard_error"] = pd.to_numeric(
-            chunk["standard_error"],
-            errors="coerce"
-        )
-
-    if "effect_allele_frequency" in chunk.columns:
-        chunk["effect_allele_frequency"] = pd.to_numeric(
-            chunk["effect_allele_frequency"],
-            errors="coerce"
-        )
-
-    if "sample_size" in chunk.columns:
-        chunk["sample_size"] = pd.to_numeric(
-            chunk["sample_size"],
-            errors="coerce"
-        )
+    for column in numeric_columns:
+        if column in chunk.columns:
+            chunk[column] = pd.to_numeric(chunk[column], errors="coerce")
 
     chunk = chunk.dropna(subset=["SNP", "p_value"])
 
@@ -141,15 +105,18 @@ def clean_chunk(chunk: pd.DataFrame, file_name: str) -> pd.DataFrame:
 
 
 def filter_significant_snps(input_file: Path, output_file: Path) -> None:
-    FILTERED_DIR.mkdir(parents=True, exist_ok=True)
+    if not input_file.exists():
+        raise FileNotFoundError(f"Missing raw GWAS file: {input_file}")
+
+    output_file.parent.mkdir(parents=True, exist_ok=True)
 
     first_chunk = True
     total_rows = 0
     valid_rows = 0
     total_significant = 0
 
-    print(f"Processing: {input_file.name}")
-    print(f"P-value threshold: {P_VALUE_THRESHOLD}")
+    print(f"Processing: {input_file}")
+    print(f"P-value threshold: {GWAS_P_THRESHOLD}")
 
     for chunk in pd.read_csv(
         input_file,
@@ -162,7 +129,7 @@ def filter_significant_snps(input_file: Path, output_file: Path) -> None:
         chunk = clean_chunk(chunk, input_file.name)
         valid_rows += len(chunk)
 
-        significant = chunk[chunk["p_value"] <= P_VALUE_THRESHOLD].copy()
+        significant = chunk[chunk["p_value"] <= GWAS_P_THRESHOLD].copy()
 
         if significant.empty:
             continue
@@ -194,18 +161,20 @@ def filter_significant_snps(input_file: Path, output_file: Path) -> None:
 
 
 def main() -> None:
+    phenotype = parse_phenotype()
+    paths = get_paths(phenotype)
+    create_output_dirs(paths)
+
     files = {
-        "male": RAW_DIR / f"{PHENOTYPE}_male.tsv",
-        "female": RAW_DIR / f"{PHENOTYPE}_female.tsv",
+        "male": paths["male_raw"],
+        "female": paths["female_raw"],
     }
 
-    for sex, file_path in files.items():
-        if not file_path.exists():
-            raise FileNotFoundError(f"Missing file: {file_path}")
+    for sex, input_file in files.items():
+        output_file = paths["filtered_dir"] / f"{phenotype}_{sex}_significant_snps.tsv"
+        filter_significant_snps(input_file, output_file)
 
-        output_file = FILTERED_DIR / f"{PHENOTYPE}_{sex}_significant_snps.tsv"
-
-        filter_significant_snps(file_path, output_file)
+    print(f"GWAS filtering completed successfully for: {phenotype}")
 
 
 if __name__ == "__main__":

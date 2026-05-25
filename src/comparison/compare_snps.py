@@ -1,61 +1,51 @@
 from pathlib import Path
-import pandas as pd
 import matplotlib.pyplot as plt
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-
-RAW_DIR = PROJECT_ROOT / "1_data" / "raw"
-FILTERED_DIR = PROJECT_ROOT / "1_data" / "filtered"
-TABLES_DIR = PROJECT_ROOT / "4_results" / "tables"
-FIGURES_DIR = PROJECT_ROOT / "4_results" / "figures"
-
-PHENOTYPE = "CAD"
+from src.utils.cli import parse_phenotype
+from src.utils.config import get_paths, create_output_dirs
 
 
-def count_rows_csv(file_path: Path) -> int:
-    return sum(1 for _ in open(file_path)) - 1
+def count_rows(file_path: Path) -> int:
+    if not file_path.exists():
+        raise FileNotFoundError(f"Missing file: {file_path}")
 
-
-def count_rows_tsv(file_path: Path) -> int:
-    return sum(1 for _ in open(file_path)) - 1
+    with open(file_path, "r", encoding="utf-8") as file:
+        return max(sum(1 for _ in file) - 1, 0)
 
 
 def main() -> None:
-    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+    phenotype = parse_phenotype()
+    paths = get_paths(phenotype)
+    create_output_dirs(paths)
 
-    male_raw = RAW_DIR / f"{PHENOTYPE}_male.tsv"
-    female_raw = RAW_DIR / f"{PHENOTYPE}_female.tsv"
+    male_raw = paths["male_raw"]
+    female_raw = paths["female_raw"]
 
-    male_filtered = FILTERED_DIR / f"{PHENOTYPE}_male_significant_snps.tsv"
-    female_filtered = FILTERED_DIR / f"{PHENOTYPE}_female_significant_snps.tsv"
+    male_filtered = paths["filtered_dir"] / f"{phenotype}_male_significant_snps.tsv"
+    female_filtered = paths["filtered_dir"] / f"{phenotype}_female_significant_snps.tsv"
 
-    shared_snps = TABLES_DIR / f"{PHENOTYPE}_shared_snps.tsv"
-    male_only = TABLES_DIR / f"{PHENOTYPE}_male_only_snps.tsv"
-    female_only = TABLES_DIR / f"{PHENOTYPE}_female_only_snps.tsv"
+    shared_snps = paths["tables_dir"] / f"{phenotype}_shared_snps.tsv"
+    male_only = paths["tables_dir"] / f"{phenotype}_male_only_snps.tsv"
+    female_only = paths["tables_dir"] / f"{phenotype}_female_only_snps.tsv"
 
     values = {
-        "Male Raw SNPs": count_rows_csv(male_raw),
-        "Female Raw SNPs": count_rows_csv(female_raw),
-
-        "Male Significant SNPs": count_rows_tsv(male_filtered),
-        "Female Significant SNPs": count_rows_tsv(female_filtered),
-
-        "Shared SNPs": count_rows_tsv(shared_snps),
-        "Male-specific SNPs": count_rows_tsv(male_only),
-        "Female-specific SNPs": count_rows_tsv(female_only),
+        "Male Raw SNPs": count_rows(male_raw),
+        "Female Raw SNPs": count_rows(female_raw),
+        "Male Significant SNPs": count_rows(male_filtered),
+        "Female Significant SNPs": count_rows(female_filtered),
+        "Shared SNPs": count_rows(shared_snps),
+        "Male-specific SNPs": count_rows(male_only),
+        "Female-specific SNPs": count_rows(female_only),
     }
 
     labels = list(values.keys())
     counts = list(values.values())
 
     plt.figure(figsize=(12, 6))
-
     bars = plt.bar(labels, counts)
 
     plt.ylabel("Number of SNPs")
-    plt.title(f"{PHENOTYPE} SNP Filtering and Comparison Summary")
-
+    plt.title(f"{phenotype} SNP Filtering and Comparison Summary")
     plt.xticks(rotation=30, ha="right")
 
     for bar, count in zip(bars, counts):
@@ -65,13 +55,12 @@ def main() -> None:
             f"{count:,}",
             ha="center",
             va="bottom",
-            fontsize=9
+            fontsize=9,
         )
 
     plt.tight_layout()
 
-    output_file = FIGURES_DIR / f"{PHENOTYPE}_snp_filtering_summary.png"
-
+    output_file = paths["figures_dir"] / f"{phenotype}_snp_filtering_summary.png"
     plt.savefig(output_file, dpi=300)
     plt.close()
 

@@ -1,14 +1,8 @@
 from pathlib import Path
 import pandas as pd
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-
-RAW_DIR = PROJECT_ROOT / "1_data" / "raw"
-FUMA_DIR = PROJECT_ROOT / "3_tools_results" / "fuma"
-
-PHENOTYPE = "CAD"
-CHUNK_SIZE = 500_000
+from src.utils.cli import parse_phenotype
+from src.utils.config import get_paths, create_output_dirs, CHUNK_SIZE
 
 
 FUMA_COLUMNS = [
@@ -67,23 +61,12 @@ def validate_fuma_columns(df: pd.DataFrame, file_name: str) -> None:
 
 def clean_fuma_chunk(chunk: pd.DataFrame, file_name: str) -> pd.DataFrame:
     chunk = normalize_columns(chunk)
-
     validate_fuma_columns(chunk, file_name)
 
     chunk = chunk[FUMA_COLUMNS].copy()
 
-    chunk["SNP"] = (
-        chunk["SNP"]
-        .astype(str)
-        .str.strip()
-    )
-
-    chunk["A1"] = (
-        chunk["A1"]
-        .astype(str)
-        .str.upper()
-        .str.strip()
-    )
+    chunk["SNP"] = chunk["SNP"].astype(str).str.strip()
+    chunk["A1"] = chunk["A1"].astype(str).str.upper().str.strip()
 
     numeric_columns = ["CHR", "BP", "BETA", "SE", "P", "N"]
 
@@ -113,13 +96,16 @@ def clean_fuma_chunk(chunk: pd.DataFrame, file_name: str) -> pd.DataFrame:
 
 
 def prepare_fuma_file(input_file: Path, output_file: Path) -> None:
+    if not input_file.exists():
+        raise FileNotFoundError(f"Missing raw GWAS file: {input_file}")
+
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
     first_chunk = True
     total_rows = 0
     kept_rows = 0
 
-    print(f"Preparing FUMA input: {input_file.name}")
+    print(f"Preparing FUMA input: {input_file}")
 
     for chunk in pd.read_csv(
         input_file,
@@ -159,21 +145,24 @@ def prepare_fuma_file(input_file: Path, output_file: Path) -> None:
 
 
 def main() -> None:
+    phenotype = parse_phenotype()
+    paths = get_paths(phenotype)
+    create_output_dirs(paths)
+
     files = {
-        "male": RAW_DIR / f"{PHENOTYPE}_male.tsv",
-        "female": RAW_DIR / f"{PHENOTYPE}_female.tsv",
+        "male": paths["male_raw"],
+        "female": paths["female_raw"],
     }
 
     outputs = {
-        "male": FUMA_DIR / "male" / f"{PHENOTYPE}_male_fuma_input.tsv",
-        "female": FUMA_DIR / "female" / f"{PHENOTYPE}_female_fuma_input.tsv",
+        "male": paths["fuma_male_dir"] / f"{phenotype}_male_fuma_input.tsv",
+        "female": paths["fuma_female_dir"] / f"{phenotype}_female_fuma_input.tsv",
     }
 
     for sex, input_file in files.items():
-        if not input_file.exists():
-            raise FileNotFoundError(f"Missing file: {input_file}")
-
         prepare_fuma_file(input_file, outputs[sex])
+
+    print(f"FUMA input preparation completed successfully for: {phenotype}")
 
 
 if __name__ == "__main__":

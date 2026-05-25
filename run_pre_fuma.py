@@ -2,6 +2,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+from src.utils.cli import parse_phenotype
+from src.utils.config import get_paths, create_output_dirs
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 
@@ -13,7 +16,7 @@ STEPS = [
 ]
 
 
-def run_step(script_path: str) -> None:
+def run_step(script_path: str, phenotype: str) -> None:
     full_path = PROJECT_ROOT / script_path
 
     if not full_path.exists():
@@ -21,11 +24,17 @@ def run_step(script_path: str) -> None:
 
     print("=" * 80)
     print(f"Running: {script_path}")
+    print(f"Phenotype: {phenotype}")
     print("=" * 80)
 
     result = subprocess.run(
-        [sys.executable, str(full_path)],
-        cwd=PROJECT_ROOT
+        [
+            sys.executable,
+            str(full_path),
+            "--phenotype",
+            phenotype,
+        ],
+        cwd=PROJECT_ROOT,
     )
 
     if result.returncode != 0:
@@ -33,14 +42,22 @@ def run_step(script_path: str) -> None:
 
 
 def main() -> None:
-    print("Starting pre-FUMA pipeline...")
+    phenotype = parse_phenotype()
+    paths = get_paths(phenotype)
 
-    for step in STEPS:
-        run_step(step)
+    create_output_dirs(paths)
 
     print("=" * 80)
-    print("Pre-FUMA pipeline completed successfully.")
-    print("Next step: upload FUMA input files from 3_tools_results/fuma/")
+    print(f"Starting pre-FUMA pipeline for phenotype: {phenotype}")
+    print("=" * 80)
+
+    for step in STEPS:
+        run_step(step, phenotype)
+
+    print("=" * 80)
+    print(f"Pre-FUMA pipeline completed successfully for: {phenotype}")
+    print(f"Next step: upload FUMA input files from:")
+    print(paths["fuma_dir"])
     print("=" * 80)
 
 

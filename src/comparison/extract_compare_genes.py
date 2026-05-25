@@ -1,15 +1,12 @@
 from pathlib import Path
 import pandas as pd
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-
-FUMA_DIR = PROJECT_ROOT / "3_tools_results" / "fuma"
-GENE_LISTS_DIR = PROJECT_ROOT / "1_data" / "gene_lists"
-TABLES_DIR = PROJECT_ROOT / "4_results" / "tables"
-
-PHENOTYPE = "CAD"
-P_THRESHOLD = 0.05
+from src.utils.cli import parse_phenotype
+from src.utils.config import (
+    get_paths,
+    create_output_dirs,
+    MAGMA_P_THRESHOLD,
+)
 
 
 def load_magma_genes(file_path: Path) -> pd.DataFrame:
@@ -54,9 +51,7 @@ def load_magma_genes(file_path: Path) -> pd.DataFrame:
 
 
 def filter_significant_genes(df: pd.DataFrame) -> pd.DataFrame:
-    result = df[df["P"] < P_THRESHOLD].copy()
-    result = result.sort_values(by="P", ascending=True)
-    return result
+    return df[df["P"] < MAGMA_P_THRESHOLD].sort_values(by="P").copy()
 
 
 def compare_gene_sets(male_df: pd.DataFrame, female_df: pd.DataFrame):
@@ -71,15 +66,8 @@ def compare_gene_sets(male_df: pd.DataFrame, female_df: pd.DataFrame):
 
 
 def save_gene_list(genes: set, output_file: Path) -> None:
-    result = pd.DataFrame({
-        "GENE": sorted(list(genes))
-    })
-
-    result.to_csv(
-        output_file,
-        sep="\t",
-        index=False
-    )
+    result = pd.DataFrame({"GENE": sorted(genes)})
+    result.to_csv(output_file, sep="\t", index=False)
 
     print(f"Saved: {output_file.name}")
     print(f"Genes: {len(result):,}")
@@ -94,21 +82,17 @@ def save_gene_table(df: pd.DataFrame, genes: set, output_file: Path) -> pd.DataF
     else:
         result = result.sort_values(by="GENE")
 
-    result.to_csv(
-        output_file,
-        sep="\t",
-        index=False
-    )
-
+    result.to_csv(output_file, sep="\t", index=False)
     return result
 
 
 def main() -> None:
-    GENE_LISTS_DIR.mkdir(parents=True, exist_ok=True)
-    TABLES_DIR.mkdir(parents=True, exist_ok=True)
+    phenotype = parse_phenotype()
+    paths = get_paths(phenotype)
+    create_output_dirs(paths)
 
-    male_file = FUMA_DIR / "male" / "magma.genes.out"
-    female_file = FUMA_DIR / "female" / "magma.genes.out"
+    male_file = paths["fuma_male_dir"] / "magma.genes.out"
+    female_file = paths["fuma_female_dir"] / "magma.genes.out"
 
     male_df = load_magma_genes(male_file)
     female_df = load_magma_genes(female_file)
@@ -120,35 +104,35 @@ def main() -> None:
 
     save_gene_list(
         shared,
-        GENE_LISTS_DIR / "shared_genes.txt"
+        paths["gene_lists_dir"] / "shared_genes.txt",
     )
 
     save_gene_list(
         male_only,
-        GENE_LISTS_DIR / "male_specific_genes.txt"
+        paths["gene_lists_dir"] / "male_specific_genes.txt",
     )
 
     save_gene_list(
         female_only,
-        GENE_LISTS_DIR / "female_specific_genes.txt"
+        paths["gene_lists_dir"] / "female_specific_genes.txt",
     )
 
     save_gene_table(
         male_sig,
         shared,
-        TABLES_DIR / f"{PHENOTYPE}_shared_gene_table.tsv"
+        paths["tables_dir"] / f"{phenotype}_shared_gene_table.tsv",
     )
 
     save_gene_table(
         male_sig,
         male_only,
-        TABLES_DIR / f"{PHENOTYPE}_male_specific_gene_table.tsv"
+        paths["tables_dir"] / f"{phenotype}_male_specific_gene_table.tsv",
     )
 
     save_gene_table(
         female_sig,
         female_only,
-        TABLES_DIR / f"{PHENOTYPE}_female_specific_gene_table.tsv"
+        paths["tables_dir"] / f"{phenotype}_female_specific_gene_table.tsv",
     )
 
     summary = pd.DataFrame({
@@ -165,21 +149,16 @@ def main() -> None:
             len(shared),
             len(male_only),
             len(female_only),
-        ]
+        ],
     })
 
-    summary_file = TABLES_DIR / "gene_summary.tsv"
-
-    summary.to_csv(
-        summary_file,
-        sep="\t",
-        index=False
-    )
+    summary_file = paths["tables_dir"] / f"{phenotype}_gene_summary.tsv"
+    summary.to_csv(summary_file, sep="\t", index=False)
 
     print(summary)
     print("-" * 60)
     print(f"Summary saved to: {summary_file}")
-    print("Gene extraction and comparison completed successfully.")
+    print(f"Gene extraction and comparison completed successfully for: {phenotype}")
 
 
 if __name__ == "__main__":

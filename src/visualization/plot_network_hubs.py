@@ -3,20 +3,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib_venn import venn3
 
+from src.utils.cli import parse_phenotype
+from src.utils.config import get_paths, create_output_dirs
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-
-TABLES_DIR = PROJECT_ROOT / "4_results" / "tables"
-FIGURES_DIR = PROJECT_ROOT / "4_results" / "figures"
 
 TOP_N = 15
-
-
-HUB_FILES = {
-    "female": TABLES_DIR / "female_hub_genes.tsv",
-    "male": TABLES_DIR / "male_hub_genes.tsv",
-    "shared": TABLES_DIR / "shared_hub_genes.tsv",
-}
+NETWORK_NAMES = ["female", "male", "shared"]
 
 
 def load_hub_genes(file_path: Path) -> pd.DataFrame:
@@ -58,6 +50,7 @@ def load_hub_genes(file_path: Path) -> pd.DataFrame:
 
 def plot_top_hubs(
     df: pd.DataFrame,
+    phenotype: str,
     network_name: str,
     metric: str,
     output_file: Path,
@@ -75,18 +68,21 @@ def plot_top_hubs(
     plt.barh(top_df["gene"], top_df[metric])
     plt.xlabel(metric.replace("_", " ").title())
     plt.ylabel("Gene")
-    plt.title(f"Top {top_n} {network_name.capitalize()} Hub Genes by {metric}")
+    plt.title(
+        f"{phenotype} Top {top_n} {network_name.capitalize()} Hub Genes by {metric}"
+    )
     plt.tight_layout()
     plt.savefig(output_file, dpi=300)
     plt.close()
 
-    print(f"Saved: {output_file.name}")
+    print(f"Saved: {output_file}")
 
 
 def plot_hub_venn(
     female_df: pd.DataFrame,
     male_df: pd.DataFrame,
     shared_df: pd.DataFrame,
+    phenotype: str,
     output_file: Path,
     top_n: int = TOP_N,
 ) -> None:
@@ -108,55 +104,66 @@ def plot_hub_venn(
     plt.figure(figsize=(7, 7))
     venn3(
         [female_genes, male_genes, shared_genes],
-        set_labels=("Female hubs", "Male hubs", "Shared hubs")
+        set_labels=("Female hubs", "Male hubs", "Shared hubs"),
     )
-    plt.title(f"Top {top_n} Hub Gene Overlap")
+    plt.title(f"{phenotype} Top {top_n} Hub Gene Overlap")
     plt.tight_layout()
     plt.savefig(output_file, dpi=300)
     plt.close()
 
-    print(f"Saved: {output_file.name}")
+    print(f"Saved: {output_file}")
 
 
 def main() -> None:
-    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+    phenotype = parse_phenotype()
+    paths = get_paths(phenotype)
+    create_output_dirs(paths)
+
+    hub_files = {
+        name: paths["tables_dir"] / f"{phenotype}_{name}_hub_genes.tsv"
+        for name in NETWORK_NAMES
+    }
 
     hub_data = {
         name: load_hub_genes(path)
-        for name, path in HUB_FILES.items()
+        for name, path in hub_files.items()
     }
 
     for network_name, df in hub_data.items():
         plot_top_hubs(
             df,
+            phenotype,
             network_name,
             "degree_count",
-            FIGURES_DIR / f"{network_name}_top_hubs_degree.png"
+            paths["figures_dir"] / f"{phenotype}_{network_name}_top_hubs_degree.png",
         )
 
         plot_top_hubs(
             df,
+            phenotype,
             network_name,
             "weighted_degree",
-            FIGURES_DIR / f"{network_name}_top_hubs_weighted_degree.png"
+            paths["figures_dir"] / f"{phenotype}_{network_name}_top_hubs_weighted_degree.png",
         )
 
         plot_top_hubs(
             df,
+            phenotype,
             network_name,
             "betweenness_centrality",
-            FIGURES_DIR / f"{network_name}_top_hubs_betweenness.png"
+            paths["figures_dir"] / f"{phenotype}_{network_name}_top_hubs_betweenness.png",
         )
 
     plot_hub_venn(
         hub_data["female"],
         hub_data["male"],
         hub_data["shared"],
-        FIGURES_DIR / "hub_genes_overlap_venn.png"
+        phenotype,
+        paths["figures_dir"] / f"{phenotype}_hub_genes_overlap_venn.png",
     )
 
     print("-" * 60)
-    print("Hub gene visualization completed successfully.")
+    print(f"Hub gene visualization completed successfully for: {phenotype}")
 
 
 if __name__ == "__main__":

@@ -2,21 +2,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+from src.utils.cli import parse_phenotype
+from src.utils.config import get_paths, create_output_dirs
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-
-REQUIRED_FILES = [
-    "3_tools_results/fuma/male/magma.genes.out",
-    "3_tools_results/fuma/female/magma.genes.out",
-
-    "3_tools_results/gprofiler/male_pathways.tsv",
-    "3_tools_results/gprofiler/female_pathways.tsv",
-    "3_tools_results/gprofiler/shared_pathways.tsv",
-
-    "3_tools_results/cytoscape/female_network_clean.tsv",
-    "3_tools_results/cytoscape/male_network_clean.tsv",
-    "3_tools_results/cytoscape/shared_network_clean.tsv",
-]
 
 STEPS = [
     "src/comparison/extract_compare_genes.py",
@@ -29,26 +19,41 @@ STEPS = [
 ]
 
 
-def check_required_files() -> None:
-    missing_files = []
+def check_required_files(paths: dict) -> None:
+    required_files = [
+        paths["fuma_male_dir"] / "magma.genes.out",
+        paths["fuma_female_dir"] / "magma.genes.out",
 
-    for file_path in REQUIRED_FILES:
-        full_path = PROJECT_ROOT / file_path
-        if not full_path.exists():
-            missing_files.append(file_path)
+        paths["gprofiler_dir"] / "male_pathways.tsv",
+        paths["gprofiler_dir"] / "female_pathways.tsv",
+        paths["gprofiler_dir"] / "shared_pathways.tsv",
+
+        paths["cytoscape_dir"] / "female_network_clean.tsv",
+        paths["cytoscape_dir"] / "male_network_clean.tsv",
+        paths["cytoscape_dir"] / "shared_network_clean.tsv",
+    ]
+
+    missing_files = [
+        file_path for file_path in required_files
+        if not file_path.exists()
+    ]
 
     if missing_files:
+        print("=" * 80)
         print("Missing required external tool result files:")
-        for file in missing_files:
-            print(f"- {file}")
+        print("=" * 80)
+
+        for file_path in missing_files:
+            print(f"- {file_path}")
 
         raise FileNotFoundError(
-            "Some required files are missing. "
-            "Please complete FUMA, g:Profiler, STRING/Cytoscape steps first."
+            "\nSome required files are missing.\n"
+            "Please complete FUMA, g:Profiler, STRING, "
+            "and Cytoscape steps before running this pipeline."
         )
 
 
-def run_step(script_path: str) -> None:
+def run_step(script_path: str, phenotype: str) -> None:
     full_path = PROJECT_ROOT / script_path
 
     if not full_path.exists():
@@ -56,11 +61,17 @@ def run_step(script_path: str) -> None:
 
     print("=" * 80)
     print(f"Running: {script_path}")
+    print(f"Phenotype: {phenotype}")
     print("=" * 80)
 
     result = subprocess.run(
-        [sys.executable, str(full_path)],
-        cwd=PROJECT_ROOT
+        [
+            sys.executable,
+            str(full_path),
+            "--phenotype",
+            phenotype,
+        ],
+        cwd=PROJECT_ROOT,
     )
 
     if result.returncode != 0:
@@ -68,18 +79,28 @@ def run_step(script_path: str) -> None:
 
 
 def main() -> None:
-    print("Checking required external tool results...")
-    check_required_files()
+    phenotype = parse_phenotype()
+    paths = get_paths(phenotype)
 
-    print("Starting post-tools pipeline...")
-
-    for step in STEPS:
-        run_step(step)
+    create_output_dirs(paths)
 
     print("=" * 80)
-    print("Post-tools pipeline completed successfully.")
-    print("Final tables saved in: 4_results/tables/")
-    print("Final figures saved in: 4_results/figures/")
+    print(f"Checking required external tool results for: {phenotype}")
+    print("=" * 80)
+
+    check_required_files(paths)
+
+    print("=" * 80)
+    print(f"Starting post-tools pipeline for: {phenotype}")
+    print("=" * 80)
+
+    for step in STEPS:
+        run_step(step, phenotype)
+
+    print("=" * 80)
+    print(f"Post-tools pipeline completed successfully for: {phenotype}")
+    print(f"Final tables saved in: {paths['tables_dir']}")
+    print(f"Final figures saved in: {paths['figures_dir']}")
     print("=" * 80)
 
 

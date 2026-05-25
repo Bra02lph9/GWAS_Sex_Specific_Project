@@ -4,18 +4,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib_venn import venn2
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-
-RAW_DIR = PROJECT_ROOT / "1_data" / "raw"
-FILTERED_DIR = PROJECT_ROOT / "1_data" / "filtered"
-GENE_LISTS_DIR = PROJECT_ROOT / "1_data" / "gene_lists"
-TABLES_DIR = PROJECT_ROOT / "4_results" / "tables"
-FIGURES_DIR = PROJECT_ROOT / "4_results" / "figures"
-
-PHENOTYPE = "CAD"
-CHUNK_SIZE = 500_000
-GWAS_THRESHOLD = 5e-8
+from src.utils.cli import parse_phenotype
+from src.utils.config import (
+    get_paths,
+    create_output_dirs,
+    CHUNK_SIZE,
+    GWAS_P_THRESHOLD,
+)
 
 
 PLOT_COLUMNS = ["CHR", "BP", "P", "BETA", "SNP"]
@@ -49,25 +44,17 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def load_gwas_for_plot(file_path: Path) -> pd.DataFrame:
     if not file_path.exists():
-        raise FileNotFoundError(f"Missing file: {file_path}")
+        raise FileNotFoundError(f"Missing GWAS file: {file_path}")
 
     chunks = []
+    print(f"Loading GWAS file for plotting: {file_path}")
 
-    print(f"Loading GWAS file for plotting: {file_path.name}")
-
-    for chunk in pd.read_csv(
-        file_path,
-        sep=",",
-        chunksize=CHUNK_SIZE,
-        low_memory=False,
-    ):
+    for chunk in pd.read_csv(file_path, sep=",", chunksize=CHUNK_SIZE, low_memory=False):
         chunk = normalize_columns(chunk)
 
-        missing_columns = [col for col in PLOT_COLUMNS if col not in chunk.columns]
-        if missing_columns:
-            raise ValueError(
-                f"Missing required columns in {file_path.name}: {missing_columns}"
-            )
+        missing = [col for col in PLOT_COLUMNS if col not in chunk.columns]
+        if missing:
+            raise ValueError(f"Missing required columns in {file_path.name}: {missing}")
 
         chunk = chunk[PLOT_COLUMNS].copy()
 
@@ -140,10 +127,10 @@ def plot_manhattan(df: pd.DataFrame, title: str, output_file: Path) -> None:
         )
 
     plt.axhline(
-        -np.log10(GWAS_THRESHOLD),
+        -np.log10(GWAS_P_THRESHOLD),
         linestyle="--",
         linewidth=1,
-        label=f"GWAS threshold: {GWAS_THRESHOLD}"
+        label=f"GWAS threshold: {GWAS_P_THRESHOLD}",
     )
 
     plt.xlabel("Chromosome")
@@ -185,10 +172,10 @@ def plot_volcano(df: pd.DataFrame, title: str, output_file: Path) -> None:
     plt.scatter(df["BETA"], df["minus_log10_p"], s=5, alpha=0.6)
 
     plt.axhline(
-        -np.log10(GWAS_THRESHOLD),
+        -np.log10(GWAS_P_THRESHOLD),
         linestyle="--",
         linewidth=1,
-        label=f"GWAS threshold: {GWAS_THRESHOLD}"
+        label=f"GWAS threshold: {GWAS_P_THRESHOLD}",
     )
 
     plt.axvline(0, linestyle="--", linewidth=1)
@@ -201,15 +188,9 @@ def plot_volcano(df: pd.DataFrame, title: str, output_file: Path) -> None:
     plt.close()
 
 
-def plot_count_bar(
-    table_file: Path,
-    x_col: str,
-    y_col: str,
-    title: str,
-    output_file: Path,
-) -> None:
+def plot_count_bar(table_file: Path, x_col: str, y_col: str, title: str, output_file: Path) -> None:
     if not table_file.exists():
-        print(f"Skipped missing table: {table_file.name}")
+        print(f"Skipped missing table: {table_file}")
         return
 
     df = pd.read_csv(table_file, sep="\t")
@@ -237,7 +218,7 @@ def plot_count_bar(
 
 def load_gene_list(file_path: Path) -> set:
     if not file_path.exists():
-        print(f"Skipped missing gene list: {file_path.name}")
+        print(f"Skipped missing gene list: {file_path}")
         return set()
 
     df = pd.read_csv(file_path, sep="\t")
@@ -259,11 +240,10 @@ def plot_venn(set_a: set, set_b: set, label_a: str, label_b: str, title: str, ou
 
 def plot_chromosome_distribution(table_file: Path, title: str, output_file: Path) -> None:
     if not table_file.exists():
-        print(f"Skipped missing SNP table: {table_file.name}")
+        print(f"Skipped missing SNP table: {table_file}")
         return
 
     df = pd.read_csv(table_file, sep="\t")
-
     chr_col = "chromosome" if "chromosome" in df.columns else "CHR"
 
     if chr_col not in df.columns:
@@ -289,7 +269,7 @@ def plot_chromosome_distribution(table_file: Path, title: str, output_file: Path
 
 def plot_top_genes(table_file: Path, title: str, output_file: Path, top_n: int = 10) -> None:
     if not table_file.exists():
-        print(f"Skipped missing gene table: {table_file.name}")
+        print(f"Skipped missing gene table: {table_file}")
         return
 
     df = pd.read_csv(table_file, sep="\t")
@@ -321,123 +301,125 @@ def plot_top_genes(table_file: Path, title: str, output_file: Path, top_n: int =
 
 
 def main() -> None:
-    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+    phenotype = parse_phenotype()
+    paths = get_paths(phenotype)
+    create_output_dirs(paths)
 
-    male_file = RAW_DIR / f"{PHENOTYPE}_male.tsv"
-    female_file = RAW_DIR / f"{PHENOTYPE}_female.tsv"
-
-    male_df = load_gwas_for_plot(male_file)
-    female_df = load_gwas_for_plot(female_file)
+    male_df = load_gwas_for_plot(paths["male_raw"])
+    female_df = load_gwas_for_plot(paths["female_raw"])
 
     plot_manhattan(
         male_df,
-        f"{PHENOTYPE} Male Manhattan Plot",
-        FIGURES_DIR / f"{PHENOTYPE}_male_manhattan.png"
+        f"{phenotype} Male Manhattan Plot",
+        paths["figures_dir"] / f"{phenotype}_male_manhattan.png",
     )
 
     plot_manhattan(
         female_df,
-        f"{PHENOTYPE} Female Manhattan Plot",
-        FIGURES_DIR / f"{PHENOTYPE}_female_manhattan.png"
+        f"{phenotype} Female Manhattan Plot",
+        paths["figures_dir"] / f"{phenotype}_female_manhattan.png",
     )
 
     plot_qq(
         male_df,
-        f"{PHENOTYPE} Male QQ Plot",
-        FIGURES_DIR / f"{PHENOTYPE}_male_qq.png"
+        f"{phenotype} Male QQ Plot",
+        paths["figures_dir"] / f"{phenotype}_male_qq.png",
     )
 
     plot_qq(
         female_df,
-        f"{PHENOTYPE} Female QQ Plot",
-        FIGURES_DIR / f"{PHENOTYPE}_female_qq.png"
+        f"{phenotype} Female QQ Plot",
+        paths["figures_dir"] / f"{phenotype}_female_qq.png",
     )
 
     plot_volcano(
         male_df,
-        f"{PHENOTYPE} Male Volcano Plot",
-        FIGURES_DIR / f"{PHENOTYPE}_male_volcano.png"
+        f"{phenotype} Male Volcano Plot",
+        paths["figures_dir"] / f"{phenotype}_male_volcano.png",
     )
 
     plot_volcano(
         female_df,
-        f"{PHENOTYPE} Female Volcano Plot",
-        FIGURES_DIR / f"{PHENOTYPE}_female_volcano.png"
+        f"{phenotype} Female Volcano Plot",
+        paths["figures_dir"] / f"{phenotype}_female_volcano.png",
     )
 
     plot_count_bar(
-        TABLES_DIR / f"{PHENOTYPE}_summary.tsv",
+        paths["tables_dir"] / f"{phenotype}_summary.tsv",
         "group",
         "count",
-        f"{PHENOTYPE} SNP Comparison",
-        FIGURES_DIR / f"{PHENOTYPE}_snp_summary_barplot.png"
+        f"{phenotype} SNP Comparison",
+        paths["figures_dir"] / f"{phenotype}_snp_summary_barplot.png",
     )
 
     plot_count_bar(
-        TABLES_DIR / "gene_summary.tsv",
+        paths["tables_dir"] / f"{phenotype}_gene_summary.tsv",
         "group",
         "count",
-        f"{PHENOTYPE} Gene Comparison",
-        FIGURES_DIR / f"{PHENOTYPE}_gene_summary_barplot.png"
+        f"{phenotype} Gene Comparison",
+        paths["figures_dir"] / f"{phenotype}_gene_summary_barplot.png",
     )
 
-    male_snps = pd.read_csv(FILTERED_DIR / f"{PHENOTYPE}_male_significant_snps.tsv", sep="\t")
-    female_snps = pd.read_csv(FILTERED_DIR / f"{PHENOTYPE}_female_significant_snps.tsv", sep="\t")
+    male_snps_file = paths["filtered_dir"] / f"{phenotype}_male_significant_snps.tsv"
+    female_snps_file = paths["filtered_dir"] / f"{phenotype}_female_significant_snps.tsv"
+
+    male_snps = pd.read_csv(male_snps_file, sep="\t")
+    female_snps = pd.read_csv(female_snps_file, sep="\t")
 
     plot_venn(
         set(male_snps["SNP"].astype(str)),
         set(female_snps["SNP"].astype(str)),
         "Male",
         "Female",
-        f"{PHENOTYPE} Significant SNPs Venn Diagram",
-        FIGURES_DIR / f"{PHENOTYPE}_snp_venn.png"
+        f"{phenotype} Significant SNPs Venn Diagram",
+        paths["figures_dir"] / f"{phenotype}_snp_venn.png",
     )
 
-    male_genes = load_gene_list(GENE_LISTS_DIR / "male_specific_genes.txt")
-    female_genes = load_gene_list(GENE_LISTS_DIR / "female_specific_genes.txt")
-    shared_genes = load_gene_list(GENE_LISTS_DIR / "shared_genes.txt")
+    male_genes = load_gene_list(paths["gene_lists_dir"] / "male_specific_genes.txt")
+    female_genes = load_gene_list(paths["gene_lists_dir"] / "female_specific_genes.txt")
+    shared_genes = load_gene_list(paths["gene_lists_dir"] / "shared_genes.txt")
 
     plot_venn(
         male_genes | shared_genes,
         female_genes | shared_genes,
         "Male",
         "Female",
-        f"{PHENOTYPE} Significant Genes Venn Diagram",
-        FIGURES_DIR / f"{PHENOTYPE}_gene_venn.png"
+        f"{phenotype} Significant Genes Venn Diagram",
+        paths["figures_dir"] / f"{phenotype}_gene_venn.png",
     )
 
     plot_chromosome_distribution(
-        FILTERED_DIR / f"{PHENOTYPE}_male_significant_snps.tsv",
-        f"{PHENOTYPE} Male Significant SNPs by Chromosome",
-        FIGURES_DIR / f"{PHENOTYPE}_male_chr_distribution.png"
+        male_snps_file,
+        f"{phenotype} Male Significant SNPs by Chromosome",
+        paths["figures_dir"] / f"{phenotype}_male_chr_distribution.png",
     )
 
     plot_chromosome_distribution(
-        FILTERED_DIR / f"{PHENOTYPE}_female_significant_snps.tsv",
-        f"{PHENOTYPE} Female Significant SNPs by Chromosome",
-        FIGURES_DIR / f"{PHENOTYPE}_female_chr_distribution.png"
+        female_snps_file,
+        f"{phenotype} Female Significant SNPs by Chromosome",
+        paths["figures_dir"] / f"{phenotype}_female_chr_distribution.png",
     )
 
     plot_top_genes(
-        TABLES_DIR / f"{PHENOTYPE}_male_specific_gene_table.tsv",
-        f"{PHENOTYPE} Top Male-Specific Genes",
-        FIGURES_DIR / f"{PHENOTYPE}_top_male_specific_genes.png"
+        paths["tables_dir"] / f"{phenotype}_male_specific_gene_table.tsv",
+        f"{phenotype} Top Male-Specific Genes",
+        paths["figures_dir"] / f"{phenotype}_top_male_specific_genes.png",
     )
 
     plot_top_genes(
-        TABLES_DIR / f"{PHENOTYPE}_female_specific_gene_table.tsv",
-        f"{PHENOTYPE} Top Female-Specific Genes",
-        FIGURES_DIR / f"{PHENOTYPE}_top_female_specific_genes.png"
+        paths["tables_dir"] / f"{phenotype}_female_specific_gene_table.tsv",
+        f"{phenotype} Top Female-Specific Genes",
+        paths["figures_dir"] / f"{phenotype}_top_female_specific_genes.png",
     )
 
     plot_top_genes(
-        TABLES_DIR / f"{PHENOTYPE}_shared_gene_table.tsv",
-        f"{PHENOTYPE} Top Shared Genes",
-        FIGURES_DIR / f"{PHENOTYPE}_top_shared_genes.png"
+        paths["tables_dir"] / f"{phenotype}_shared_gene_table.tsv",
+        f"{phenotype} Top Shared Genes",
+        paths["figures_dir"] / f"{phenotype}_top_shared_genes.png",
     )
 
     print("-" * 60)
-    print("Visualization completed successfully.")
+    print(f"Visualization completed successfully for: {phenotype}")
 
 
 if __name__ == "__main__":
