@@ -1,8 +1,30 @@
-JAK2 — the most compelling hub
-JAK2 appears in both centrality metrics, which already makes it the most robust finding. Its high TPM in coronary and tibial arteries directly links it to the vascular tissue of interest in CAD. The eQTL signal (p=2.3e-44) lands in nerve-tibial tissue — this is not a contradiction. It suggests that genetic variants regulating JAK2 expression are most detectable in nerve tissue, possibly because JAK2 is more tightly regulated there, while the functional effect on artery tissue may be downstream or shared through systemic signaling. The JAK-STAT pathway is well-established in vascular inflammation, and your top pathway "intracellular signal transduction" is consistent with this. The sex-specific angle is plausible because JAK2 interacts with estrogen receptor signaling.
-PPARGC1A — the cardiac metabolism link
-This gene stands out because its high TPM is specifically in cardiac tissue (atrial appendage and left ventricle), not in arteries. This is biologically meaningful: PPARGC1A is the master regulator of mitochondrial biogenesis. Females have sex-specific differences in cardiac energy metabolism, particularly in how the heart handles oxidative stress and fatty acid oxidation. The eQTL in thyroid is also coherent — thyroid hormone is a major regulator of PPARGC1A expression, and hypothyroidism is a known sex-biased cardiovascular risk factor more prevalent in women. So the regulatory chain could be: thyroid-related variants → PPARGC1A expression → impaired cardiac mitochondrial function → female-specific CAD susceptibility.
-UTP4 — the indirect or remodeling player
-UTP4 is less intuitively connected to CAD, which makes the GTEx data important. Its strongest eQTL (p=5.5e-56, the most significant of the three) is in cultured fibroblasts, and its TPM in cultured fibroblasts is also the highest. However, it does show expression in coronary and tibial arteries. Fibroblasts are central to vascular remodeling, fibrosis, and atherosclerotic plaque structure. UTP4 is involved in ribosome biogenesis (rRNA processing), so its role could be in supporting the high translational demand of activated fibroblasts during arterial remodeling. The "membrane" pathway enrichment from your top 5 supports this cellular remodeling context.
-Overall conclusion
-These three genes, taken together, point to a multi-layered female-specific CAD mechanism: JAK2 drives vascular inflammatory signaling directly in arterial tissue, PPARGC1A captures a cardiac metabolic vulnerability specific to female physiology and thyroid regulation, and UTP4 may reflect a fibrotic or remodeling component in the artery wall mediated through fibroblast activity. The important methodological note is that for JAK2 and UTP4 the eQTL-calling tissue and the highest-expression tissue do not perfectly overlap — this is common and means the genetic regulatory mechanism is not confined to the tissue where the effect is most obvious functionally. You should highlight this tissue discordance as a limitation or as a hypothesis-generating observation in your discussion.
+## JAK2 — The Most Compelling Hub
+
+**JAK2** appears in both centrality metrics, making it the most robust finding in the network analysis. Its high TPM expression in coronary and tibial arteries directly links it to vascular tissues relevant to coronary artery disease (CAD).
+
+The strong eQTL signal (*p = 2.3 × 10⁻⁴⁴*) was detected in tibial nerve tissue. This does not represent a contradiction; rather, it suggests that genetic variants regulating **JAK2** expression are more detectable in nerve tissue, possibly due to tighter transcriptional regulation in that environment. The downstream functional consequences may still affect arterial tissues through systemic or shared signaling mechanisms.
+
+Biologically, this interpretation is highly plausible. The **JAK–STAT signaling pathway** is already well established in vascular inflammation and immune-mediated cardiovascular processes. In addition, the enrichment of the pathway *“intracellular signal transduction”* among the top results further supports the central regulatory role of **JAK2**.
+
+The sex-specific component is also meaningful, as **JAK2** has documented interactions with estrogen receptor signaling pathways, potentially contributing to female-specific CAD susceptibility.
+
+---
+
+## PPARGC1A — The Cardiac Metabolism Link
+
+**PPARGC1A** stands out because its highest TPM expression is observed specifically in cardiac tissues, particularly the atrial appendage and left ventricle, rather than in arterial tissues. This pattern is biologically significant because **PPARGC1A** is a master regulator of mitochondrial biogenesis and cellular energy metabolism.
+
+Sex-specific differences in cardiac metabolism are well documented, especially regarding oxidative stress handling and fatty acid oxidation in females. Alterations in **PPARGC1A** activity may therefore disproportionately affect female cardiac physiology.
+
+The associated eQTL signal detected in thyroid tissue is also biologically coherent. Thyroid hormones are major regulators of **PPARGC1A** expression, and hypothyroidism is a known sex-biased cardiovascular risk factor that is more prevalent in women.
+
+A plausible mechanistic chain may therefore be proposed:
+
+```text
+Thyroid-related genetic variants
+        ↓
+Altered PPARGC1A expression
+        ↓
+Impaired mitochondrial and cardiac energy function
+        ↓
+Increased female-specific CAD susceptibility
