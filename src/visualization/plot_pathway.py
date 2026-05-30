@@ -24,7 +24,7 @@ def load_enrichment_results(file_path: Path) -> pd.DataFrame:
     if not file_path.exists():
         raise FileNotFoundError(f"Missing enrichment file: {file_path}")
 
-    df = pd.read_csv(file_path, sep="\t", low_memory=False)
+    df = pd.read_csv(file_path, sep=",", low_memory=False)
 
     missing_columns = [
         col for col in REQUIRED_COLUMNS

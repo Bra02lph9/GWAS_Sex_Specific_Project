@@ -15,6 +15,7 @@ CYTOSCAPE_ROOT = PROJECT_ROOT / "3_tools_results" / "cytoscape"
 
 RESULTS_ROOT = PROJECT_ROOT / "4_results"
 REPORTS_ROOT = PROJECT_ROOT / "reports"
+LOCI_ROOT = PROJECT_ROOT / "1_data" / "loci"
 
 GWAS_P_THRESHOLD = 5e-8
 MAGMA_P_THRESHOLD = 0.05
@@ -54,6 +55,7 @@ def get_paths(phenotype: str) -> dict:
         "figures_dir": RESULTS_ROOT / phenotype / "figures",
 
         "report_dir": REPORTS_ROOT / phenotype,
+        "loci_dir": LOCI_ROOT / phenotype,
     }
 
 
@@ -72,6 +74,7 @@ def create_output_dirs(paths: dict) -> None:
         "tables_dir",
         "figures_dir",
         "report_dir",
+        "loci_dir",
     ]
 
     for key in output_keys:

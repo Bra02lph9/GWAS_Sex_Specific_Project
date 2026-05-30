@@ -16,20 +16,56 @@ def load_pathway_file(file_path):
     if not file_path.exists():
         raise FileNotFoundError(f"Pathway file not found: {file_path}")
 
-    df = pd.read_csv(file_path, sep="\t")
+    # Auto-detect separator (comma or tab)
+    df = pd.read_csv(file_path, sep=None, engine="python")
 
-    missing_columns = [col for col in COLUMNS_TO_KEEP if col not in df.columns]
+    # Clean column names
+    df.columns = df.columns.str.strip().str.replace('"', "")
+
+    # Optional compatibility renaming
+    rename_map = {
+        "name": "term_name",
+        "p_value": "adjusted_p_value",
+        "native": "term_id",
+    }
+
+    df = df.rename(columns=rename_map)
+
+    missing_columns = [
+        col for col in COLUMNS_TO_KEEP
+        if col not in df.columns
+    ]
+
     if missing_columns:
         raise ValueError(
-            f"Missing columns in {file_path}: {missing_columns}"
+            f"Missing columns in {file_path}: {missing_columns}\n"
+            f"Available columns: {list(df.columns)}"
         )
 
-    return df[COLUMNS_TO_KEEP].copy()
+    # Keep only required columns
+    df = df[COLUMNS_TO_KEEP].copy()
+
+    # Ensure numeric types
+    df["adjusted_p_value"] = pd.to_numeric(
+        df["adjusted_p_value"],
+        errors="coerce"
+    )
+
+    df["intersection_size"] = pd.to_numeric(
+        df["intersection_size"],
+        errors="coerce"
+    )
+
+    # Remove invalid rows
+    df = df.dropna(subset=["term_name", "adjusted_p_value"])
+
+    return df
 
 
 def main():
     phenotype = parse_phenotype()
     paths = get_paths(phenotype)
+
     create_output_dirs(paths)
 
     female_file = paths["gprofiler_dir"] / "female_pathways.tsv"
@@ -66,7 +102,9 @@ def main():
     female_specific_df.to_csv(female_output, index=False)
     male_specific_df.to_csv(male_output, index=False)
 
-    print("===== PATHWAY COMPARISON =====")
+    print("=" * 60)
+    print("PATHWAY COMPARISON COMPLETED")
+    print("=" * 60)
     print(f"Phenotype: {phenotype}")
     print(f"Female pathways: {len(female_pathways)}")
     print(f"Male pathways: {len(male_pathways)}")

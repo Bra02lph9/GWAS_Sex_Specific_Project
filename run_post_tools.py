@@ -16,6 +16,10 @@ STEPS = [
     "src/visualization/gwas_plots.py",
     "src/visualization/plot_network_hubs.py",
     "src/visualization/plot_pathway.py",
+    # "src/visualization/plot_locus_overlap.py",
+    # Add later when ready:
+    # "src/validation/gtex_expression_validation.py",
+    # "src/validation/eqtl_validation.py",
 ]
 
 
@@ -53,6 +57,10 @@ def check_required_files(paths: dict) -> None:
         )
 
 
+def script_to_module(script_path: str) -> str:
+    return Path(script_path).with_suffix("").as_posix().replace("/", ".")
+
+
 def run_step(script_path: str, phenotype: str) -> None:
     full_path = PROJECT_ROOT / script_path
 
@@ -64,10 +72,13 @@ def run_step(script_path: str, phenotype: str) -> None:
     print(f"Phenotype: {phenotype}")
     print("=" * 80)
 
+    module_name = script_to_module(script_path)
+
     result = subprocess.run(
         [
             sys.executable,
-            str(full_path),
+            "-m",
+            module_name,
             "--phenotype",
             phenotype,
         ],

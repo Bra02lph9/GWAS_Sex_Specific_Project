@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -12,6 +13,8 @@ STEPS = [
     "src/preprocessing/filter_large_gwas.py",
     "src/comparison/compare_significant_snps.py",
     "src/comparison/compare_snps.py",
+    # "src/locus/define_loci.py",
+    "src/locus/compare_loci.py",
     "src/preprocessing/prepare_fuma_input.py",
 ]
 
@@ -27,6 +30,9 @@ def run_step(script_path: str, phenotype: str) -> None:
     print(f"Phenotype: {phenotype}")
     print("=" * 80)
 
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(PROJECT_ROOT)
+
     result = subprocess.run(
         [
             sys.executable,
@@ -35,6 +41,7 @@ def run_step(script_path: str, phenotype: str) -> None:
             phenotype,
         ],
         cwd=PROJECT_ROOT,
+        env=env,
     )
 
     if result.returncode != 0:
