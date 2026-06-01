@@ -16,7 +16,7 @@ STEPS = [
     "src/visualization/gwas_plots.py",
     "src/visualization/plot_network_hubs.py",
     "src/visualization/plot_pathway.py",
-    # "src/visualization/plot_locus_overlap.py",
+    "src/visualization/plot_locus_overlap.py",
     # Add later when ready:
     # "src/validation/gtex_expression_validation.py",
     # "src/validation/eqtl_validation.py",

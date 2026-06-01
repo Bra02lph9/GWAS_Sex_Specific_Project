@@ -13,7 +13,7 @@ STEPS = [
     "src/preprocessing/filter_large_gwas.py",
     "src/comparison/compare_significant_snps.py",
     "src/comparison/compare_snps.py",
-    # "src/locus/define_loci.py",
+    "src/locus/define_loci.py",
     "src/locus/compare_loci.py",
     "src/preprocessing/prepare_fuma_input.py",
 ]
