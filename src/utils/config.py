@@ -56,6 +56,7 @@ def get_paths(phenotype: str) -> dict:
 
         "report_dir": REPORTS_ROOT / phenotype,
         "loci_dir": LOCI_ROOT / phenotype,
+        "gtex_dir": PROJECT_ROOT / "3_tools_results" / "gtex" / phenotype,
     }
 
 
@@ -75,6 +76,7 @@ def create_output_dirs(paths: dict) -> None:
         "figures_dir",
         "report_dir",
         "loci_dir",
+        "gtex_dir",
     ]
 
     for key in output_keys:
